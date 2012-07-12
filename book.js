@@ -10,6 +10,9 @@
 		var width =  200;
 		var pagewidth = 100;
 		var height = 200;
+
+		var events = ["mousedown", "mousemove", "mouseup"];
+		//var events = ["touchstart", "touchmove", "touchend"];
 /*
 		var img = new Image();
 		img.onLoad = function(){
@@ -38,11 +41,17 @@
 				width = w;
 				height = h;
 
+				var halfheight = (height*0.5)
+
+				target.style.webkitPerspectiveOrigin = pagewidth+"px "+halfheight+"px";
+
 				for(var i = 0; i < 2; i++){
 					var canvas = canvasList[i];
 					canvas.width = pagewidth;
 					canvas.height = h;
-					canvas.className= "test";
+					canvas.addEventListener(events[0], dragStart);
+					//canvas.className= "test";
+					canvas.style.webkitTransformOrigin = (i%2 ? "0px "+halfheight+"px" : pagewidth+"px "+halfheight+"px");
 					console.log(canvas);
 					console.dir(canvas);
 
@@ -53,8 +62,10 @@
 			},
 			render: function(img1, img2){
 				var ctx;
+				console.log(pagewidth, height);
 				for(var i = 0; i < contextList.length; i ++){
 					ctx = contextList[i];
+					ctx.clearRect(0, 0, pagewidth, height);
 
 					ctx.fillStyle = "rgb("+Math.floor(Math.random()*255)+","+Math.floor(Math.random()*255)+","+Math.floor(Math.random()*255)+")";  
         			ctx.fillRect (0, 0, pagewidth, height);  
@@ -81,11 +92,57 @@
 				id = setInterval(function(){
 					for(var i = 0, length = canvasList.length; i < length; i++){
 						var c = canvasList[i];
-						c.style.webkitTransform = "rotateY("+count*(i%2?1:-1)+"deg)";
+						c.style.webkitTransform = "rotateY("+count*(i%2?-1:1)+"deg)";
 					}
 					count = (count+1)%360;
 				},1000/30);
 			}
+		}
+
+		var step = function(){
+			var target = canvasList[rightside ? 1: 0];
+			target.style.webkitTransform = "rotateY("+((movingprops.dif/width)*180)+"deg)";
+		}
+
+		var animate = function(){
+
+		}
+
+		var movingprops = {start: 0, dif:0, rangeStart: 0, rangeStop: 1};
+		var rightside = true;
+
+		var dragStart = function(e){
+			console.log("start:", e);
+			rightside = (canvasList.indexOf(this) % 2) ? true : false;
+
+			movingprops.rangeStart = rightside ? -width: 0;
+			movingprops.rangeStop = rightside ? 0: width;
+			movingprops.start = e.pageX;
+			window.addEventListener(events[1], dragMove);
+			window.addEventListener(events[2], dragEnd);
+
+			e.preventDefault(); // disable the native scroling of pages on IOS
+		}
+		var dragMove = function(e){
+			//console.log("move:", e);
+			var dif = e.pageX-movingprops.start;
+			if(dif < movingprops.rangeStart){
+				dif = movingprops.rangeStart;
+			}else if(dif > movingprops.rangeStop){
+				dif = movingprops.rangeStop;
+			}
+			movingprops.speed = dif -movingprops.dif;
+			movingprops.dif = dif;
+			requestAnimationFrame(step);
+		}
+		var dragEnd = function(e){
+			//console.log("end:",e);
+			window.removeEventListener(events[1], dragMove);
+			window.removeEventListener(events[2], dragEnd);
+
+			console.log(movingprops.rangeStop, movingprops.dif, movingprops.speed);
+
+
 		}
 
 		obj.initCanvases();
@@ -110,3 +167,29 @@
 
 	window.Book = init;
 })(window);
+
+//request animation shim
+(function() {
+    var lastTime = 0;
+    var vendors = ['ms', 'moz', 'webkit', 'o'];
+    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+        window.cancelAnimationFrame = 
+          window[vendors[x]+'CancelAnimationFrame'] || window[vendors[x]+'CancelRequestAnimationFrame'];
+    }
+ 
+    if (!window.requestAnimationFrame)
+        window.requestAnimationFrame = function(callback, element) {
+            var currTime = new Date().getTime();
+            var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+            var id = window.setTimeout(function() { callback(currTime + timeToCall); }, 
+              timeToCall);
+            lastTime = currTime + timeToCall;
+            return id;
+        };
+ 
+    if (!window.cancelAnimationFrame)
+        window.cancelAnimationFrame = function(id) {
+            clearTimeout(id);
+        };
+}());
