@@ -2,6 +2,6 @@
 	-webkit-perspective: 700;
 }
 .test{
-	-webkit-transform: rotateY(130deg);
+	-webkit-transform: rotateY(20deg);
 	/*-mos-transform: rotateY(130deg);*/
 }

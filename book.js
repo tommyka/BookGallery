@@ -4,15 +4,14 @@
 	var init = function(tar){
 		var target = tar;
 
-		var canvasList = new Array(2);
-		var contextList = new Array(2);
+		var canvasList = new Array(6);
+		var contextList = new Array(6);
 
 		var width =  200;
 		var pagewidth = 100;
 		var height = 200;
 
-		var events = ["mousedown", "mousemove", "mouseup"];
-		//var events = ["touchstart", "touchmove", "touchend"];
+		var events = navigator.userAgent.toLowerCase().indexOf("ipad") != -1  ? ["touchstart", "touchmove", "touchend"] : ["mousedown", "mousemove", "mouseup"];
 /*
 		var img = new Image();
 		img.onLoad = function(){
@@ -20,11 +19,12 @@
 		}
 		img.src="images/img1.jpg";
 */
-		var img = loadimage("images/img1.jpg", function(){obj.render(this)});
+		var img = loadimage("images/img1.jpg", function(){if(img.complete && img2.complete){obj.render(img, img2)}});
+		var img2 = loadimage("images/img2.jpg", function(){if(img.complete && img2.complete){obj.render(img, img2)}});
 
 		var obj = {
 			initCanvases:function(){
-				for(var i = 0; i<2; i++){
+				for(var i = 0; i<6; i++){
 					var canvas = document.createElement('canvas');
 					canvas.style.position = "absolute";
 
@@ -33,7 +33,6 @@
 
 					canvasList[i] = canvas;
 					contextList[i] = ctx;
-
 				}
 			},
 			resize: function(w, h){
@@ -45,24 +44,23 @@
 
 				target.style.webkitPerspectiveOrigin = pagewidth+"px "+halfheight+"px";
 
-				for(var i = 0; i < 2; i++){
+				for(var i = 0; i < canvasList.length; i ++){
 					var canvas = canvasList[i];
 					canvas.width = pagewidth;
 					canvas.height = h;
 					canvas.addEventListener(events[0], dragStart);
 					//canvas.className= "test";
 					canvas.style.webkitTransformOrigin = (i%2 ? "0px "+halfheight+"px" : pagewidth+"px "+halfheight+"px");
-					console.log(canvas);
-					console.dir(canvas);
 
 					if(i % 2){
 						canvas.style.left = pagewidth+"px";
 					}
 				}
+
 			},
-			render: function(img1, img2){
+			render: function(center, front, back){
 				var ctx;
-				console.log(pagewidth, height);
+
 				for(var i = 0; i < contextList.length; i ++){
 					ctx = contextList[i];
 					ctx.clearRect(0, 0, pagewidth, height);
@@ -71,19 +69,19 @@
         			ctx.fillRect (0, 0, pagewidth, height);  
 				}
 
-				if(img1){
-
-					var imgW = img1.width*0.5;
-					var imgH = img1.height;
-					var factor = Math.min(pagewidth/imgW, height/imgH);
-
-					var dnW = imgW*factor;
-					var dnH = imgH*factor;
-
-					contextList[0].drawImage(img1, 0, 0, imgW, imgH, Math.floor(pagewidth-dnW), Math.floor((height-dnH)*0.5), dnW, dnH);
-					contextList[1].drawImage(img1, imgW, 0, imgW, imgH, 0, Math.floor((height-dnH)*0.5), dnW, dnH);
-
+				if(center){
+					drawToPlanes(center, contextList[2], contextList[3]);
 				}
+				if(front){
+					drawToPlanes(front, contextList[0], contextList[1]);
+					drawToPlanes(front, contextList[4], contextList[5]);
+				}
+			},
+			next:function(){
+
+			},
+			prev:function(){
+
 			},
 			stop: function(){
 				clearInterval(id);
@@ -98,10 +96,29 @@
 				},1000/30);
 			}
 		}
-
+		var difval;
+		var index;
+		var page;
 		var step = function(){
-			var target = canvasList[rightside ? 1: 0];
-			target.style.webkitTransform = "rotateY("+((movingprops.dif/width)*180)+"deg)";
+
+			var targetid = Math.floor((difval+1)*2)+1;
+
+			if(index !== targetid && !isNaN(targetid) ){
+				index = targetid;
+				if(page !== undefined){
+
+					page.style.zIndex = 3;
+					setVisiblity(page, false);
+				}
+				page = canvasList[targetid];
+				
+				page.style.zIndex = 10;
+				setVisiblity(page, true);
+
+			}
+			difval = (movingprops.dif/width);
+			page.style.webkitTransform = "rotateY("+(-difval *180+(targetid == 2 || targetid == 3 ? 0 : -180))+"deg)";
+			//target.style.webkitTransform = "rotateY("+ (-difval*180)+"deg)";
 		}
 
 		var animate = function(){
@@ -115,8 +132,8 @@
 			console.log("start:", e);
 			rightside = (canvasList.indexOf(this) % 2) ? true : false;
 
-			movingprops.rangeStart = rightside ? -width: 0;
-			movingprops.rangeStop = rightside ? 0: width;
+			movingprops.rangeStart = -width;
+			movingprops.rangeStop = width
 			movingprops.start = e.pageX;
 			window.addEventListener(events[1], dragMove);
 			window.addEventListener(events[2], dragEnd);
@@ -125,7 +142,8 @@
 		}
 		var dragMove = function(e){
 			//console.log("move:", e);
-			var dif = e.pageX-movingprops.start;
+			var dif = movingprops.start-e.pageX;
+
 			if(dif < movingprops.rangeStart){
 				dif = movingprops.rangeStart;
 			}else if(dif > movingprops.rangeStop){
@@ -141,8 +159,24 @@
 			window.removeEventListener(events[2], dragEnd);
 
 			console.log(movingprops.rangeStop, movingprops.dif, movingprops.speed);
+		}
 
+		var drawToPlanes = function(img, c1,c2){
+			var imgW = img.width*0.5;
+			var imgH = img.height;
+			var factor = Math.min(pagewidth/imgW, height/imgH);
 
+			var dnW = imgW*factor;
+			var dnH = imgH*factor;
+
+			c1.drawImage(img, 0, 0, imgW, imgH, Math.floor(pagewidth-dnW), Math.floor((height-dnH)*0.5), dnW, dnH);
+			c2.drawImage(img, imgW, 0, imgW, imgH, 0, Math.floor((height-dnH)*0.5), dnW, dnH);
+		}
+		var setVisiblity = function(target, value){
+			if(value !== target.visible){
+				target.style.visiblity = value ? "visible" : "hidden";
+				target.visible = value;
+			}
 		}
 
 		obj.initCanvases();
